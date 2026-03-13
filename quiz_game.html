@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sales Funnel Quiz</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gap: 28px;
+    --pad: 40px 30px;
+    --q-pad: 38px 48px;
+    --title-size: clamp(1.9rem, 6.5vw, 4rem);
+    --q-size: clamp(1rem, 2.3vw, 1.4rem);
+    --btn-size: clamp(0.9rem, 1.9vw, 1.1rem);
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Archivo', sans-serif;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .screen {
+    display: none;
+    min-height: 100dvh;
+    min-height: 100vh;
+    width: 100%;
+    padding: var(--pad);
+    padding-bottom: max(var(--gap), env(safe-area-inset-bottom, 16px));
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap);
+  }
+  .screen.active { display: flex; }
+
+  /* TITLE */
+  .quiz-title {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: var(--title-size);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-align: center;
+    line-height: 1;
+  }
+  .quiz-title.anim { animation: popIn .38s cubic-bezier(.2,1.6,.4,1) both; }
+
+  /* QUESTION CARD */
+  .question-card {
+    background: #fff;
+    color: #000;
+    border-radius: 20px;
+    padding: var(--q-pad);
+    width: 100%;
+    max-width: 800px;
+    text-align: center;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: var(--q-size);
+    line-height: 1.45;
+    position: relative;
+  }
+  .question-card.anim { animation: slideDown .42s cubic-bezier(.2,1.4,.4,1) .08s both; }
+
+  .dots { position: absolute; top: 16px; right: 18px; display: flex; gap: 7px; }
+  .dot  { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; }
+
+  /* OPTIONS */
+  .options {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    max-width: 800px;
+  }
+  .options.anim { animation: slideUp .42s cubic-bezier(.2,1.4,.4,1) .16s both; }
+
+  .option-btn {
+    flex: 1;
+    border: none;
+    border-radius: 18px;
+    padding: 28px 20px;
+    cursor: pointer;
+    font-family: 'Archivo', sans-serif;
+    font-size: var(--btn-size);
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .14s ease, box-shadow .14s ease, filter .18s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    /* Ensure outline works cross-browser */
+    outline: 4px solid transparent;
+    outline-offset: 2px;
+  }
+  .option-btn .letter {
+    display: block;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+  }
+  @media (hover: hover) {
+    .option-btn:hover:not(:disabled) {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 12px 28px rgba(0,0,0,.5);
+    }
+  }
+  .option-btn:active:not(:disabled) { transform: scale(.96); }
+  .option-btn:disabled { cursor: default; }
+
+  /* Answer feedback states */
+  .option-btn.correct {
+    animation: flashCorrect .55s ease forwards;
+    outline-color: #00e676;
+  }
+  .option-btn.wrong {
+    animation: flashWrong .5s ease forwards;
+    filter: brightness(.55);
+  }
+  .option-btn.reveal-correct {
+    outline-color: #00e676;
+  }
+
+  /* FEEDBACK */
+  .feedback {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(1.2rem, 4vw, 1.75rem);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 10px 32px;
+    border-radius: 60px;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .25s ease;
+    pointer-events: none;
+  }
+  .feedback.show { opacity: 1; }
+  .feedback.ok   { background: #00e676; color: #000; }
+  .feedback.ko   { background: #ff3d00; color: #fff; }
+
+  /* NEXT BUTTON */
+  .next-btn {
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 50px;
+    padding: 15px 48px;
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 1rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity .28s ease, transform .28s ease, background .15s;
+  }
+  .next-btn.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  @media (hover: hover) { .next-btn:hover { background: #ddd; } }
+  .next-btn:active { transform: scale(.96); }
+
+  /* PROGRESS */
+  .progress-wrap {
+    width: 100%;
+    max-width: 800px;
+    background: #222;
+    border-radius: 30px;
+    height: 7px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 30px;
+    background: #fff;
+    transition: width .45s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Q4 DECORATIVE — absolute, inside screen, NOT fixed */
+  #q4 { position: relative; overflow: hidden; }
+  .deco-corner-tr {
+    position: absolute; top: 0; right: 0;
+    width: clamp(70px, 13vw, 115px);
+    height: clamp(70px, 13vw, 115px);
+    pointer-events: none;
+  }
+  .deco-corner-bl {
+    position: absolute; bottom: 0; left: 0;
+    width: clamp(70px, 13vw, 115px);
+    height: clamp(70px, 13vw, 115px);
+    pointer-events: none;
+  }
+  .deco-star-svg {
+    position: absolute;
+    right: clamp(14px, 3.5vw, 34px);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    pointer-events: none;
+  }
+
+  /* END SCREEN */
+  .end-screen { text-align: center; }
+  .end-label {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(1.3rem, 3.5vw, 2rem);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .end-score {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: clamp(5rem, 22vw, 11rem);
+    line-height: 1;
+    background: linear-gradient(135deg, #FFE234 35%, #FF9800 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .end-msg {
+    font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+    color: #aaa;
+    max-width: 400px;
+    line-height: 1.5;
+  }
+
+
+  /* STAR PARTICLES */
+  .star-particle {
+    position: fixed;
+    font-size: clamp(1.3rem, 4vw, 1.9rem);
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    animation: starPop .75s ease forwards;
+    z-index: 9999;
+  }
+
+  /* KEYFRAMES */
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(.78); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-26px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(26px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes flashCorrect {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.07); }
+    100% { transform: scale(1); }
+  }
+  @keyframes flashWrong {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-7px); }
+    45%     { transform: translateX(7px); }
+    70%     { transform: translateX(-5px); }
+    85%     { transform: translateX(5px); }
+  }
+  @keyframes starPop {
+    0%   { opacity: 1; transform: scale(0) rotate(-15deg); }
+    55%  { opacity: 1; transform: scale(1.3) rotate(8deg); }
+    100% { opacity: 0; transform: scale(.9) translateY(-55px) rotate(0deg); }
+  }
+
+  /* MOBILE */
+  @media (max-width: 580px) {
+    :root {
+      --gap: 18px;
+      --pad: 22px 16px;
+      --q-pad: 24px 20px;
+    }
+    .options { flex-direction: column; }
+    .option-btn { padding: 20px 16px; }
+    .dots { top: 10px; right: 10px; }
+    .dot  { width: 15px; height: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ Q1 ══════════════ -->
+<div class="screen active" id="q1">
+  <div class="quiz-title">Quiz Number 1</div>
+  <div class="question-card">
+    Before selling the sweatshirt, what should Alex do?
+  </div>
+  <div class="options">
+    <button class="option-btn" style="background:#FFE234;color:#000;" onclick="answer(this,true)">
+      <span class="letter">A</span>
+      Make the brand known and attract interested boys and girls.
+    </button>
+    <button class="option-btn" style="background:#FFBC5B;color:#000;" onclick="answer(this,false)">
+      <span class="letter">B</span>
+      Print as many sweatshirts as possible without promoting them
+    </button>
+  </div>
+  <div class="feedback"></div>
+  <button class="next-btn" onclick="goNext('q2')">Next →</button>
+  <div class="progress-wrap"><div class="progress-fill" style="width:25%"></div></div>
+</div>
+
+<!-- ══════════════ Q2 ══════════════ -->
+<div class="screen" id="q2">
+  <div class="quiz-title">Quiz Number 2</div>
+  <div class="question-card">
+    To create interest, what does Anna advise him to do?
+  </div>
+  <div class="options">
+    <button class="option-btn" style="background:#FFBC5B;color:#000;" onclick="answer(this,false)">
+      <span class="letter">A</span>
+      Immediately offer a big discount to push people to buy.
+    </button>
+    <button class="option-btn" style="background:#B8F47A;color:#000;" onclick="answer(this,true)">
+      <span class="letter">B</span>
+      Show photos of the sweatshirt, the product details, and the brand's values.
+    </button>
+  </div>
+  <div class="feedback"></div>
+  <button class="next-btn" onclick="goNext('q3')">Next →</button>
+  <div class="progress-wrap"><div class="progress-fill" style="width:50%"></div></div>
+</div>
+
+<!-- ══════════════ Q3 ══════════════ -->
+<div class="screen" id="q3">
+  <div class="quiz-title">Quiz Number 3</div>
+  <div class="question-card">
+    <div class="dots">
+      <div class="dot" style="background:#3B4FE8"></div>
+      <div class="dot" style="background:#6ECF4A"></div>
+      <div class="dot" style="background:#FFBC5B"></div>
+    </div>
+    After the first purchase, how can Alex build customer loyalty?
+  </div>
+  <div class="options">
+    <button class="option-btn" style="background:#FFE234;color:#000;" onclick="answer(this,true)">
+      <span class="letter">A</span>
+      Send interesting content and special offers to customers who have already bought.
+    </button>
+    <button class="option-btn" style="background:#FF5722;color:#fff;" onclick="answer(this,false)">
+      <span class="letter">B</span>
+      Ignore those who have already purchased and focus only on new customers.
+    </button>
+  </div>
+  <div class="feedback"></div>
+  <button class="next-btn" onclick="goNext('q4')">Next →</button>
+  <div class="progress-wrap"><div class="progress-fill" style="width:75%"></div></div>
+</div>
+
+<!-- ══════════════ Q4 ══════════════ -->
+<div class="screen" id="q4">
+  <div class="deco-corner-tr">
+    <svg width="100%" height="100%" viewBox="0 0 110 110" preserveAspectRatio="none">
+      <path d="M110 0 A110 110 0 0 0 0 110 L110 110 Z" fill="#FFE234"/>
+    </svg>
+  </div>
+  <div class="deco-corner-bl">
+    <svg width="100%" height="100%" viewBox="0 0 110 110" preserveAspectRatio="none">
+      <path d="M0 110 A110 110 0 0 0 110 0 L0 0 Z" fill="#FFBC5B"/>
+    </svg>
+  </div>
+  <svg class="deco-star-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16 0 L18.2 12.8 L32 16 L18.2 19.2 L16 32 L13.8 19.2 L0 16 L13.8 12.8 Z" fill="white"/>
+  </svg>
+
+  <div class="quiz-title">Quiz Number 4</div>
+  <div class="question-card">
+    Which action reduces the risk that a student abandons an online shopping cart?
+  </div>
+  <div class="options">
+    <button class="option-btn" style="background:#FFBC5B;color:#000;" onclick="answer(this,false)">
+      <span class="letter">A</span>
+      Hide cost information until the final step.
+    </button>
+    <button class="option-btn" style="background:#67E8F9;color:#000;" onclick="answer(this,true)">
+      <span class="letter">B</span>
+      Show shipping costs and delivery times upfront.
+    </button>
+  </div>
+  <div class="feedback"></div>
+  <button class="next-btn" onclick="goNext('end')">See Results →</button>
+  <div class="progress-wrap"><div class="progress-fill" style="width:100%"></div></div>
+</div>
+
+<!-- ══════════════ END ══════════════ -->
+<div class="screen end-screen" id="end">
+  <div class="end-label">Your Score</div>
+  <div class="end-score" id="finalScore">0/4</div>
+  <div class="end-msg" id="finalMsg"></div>
+
+</div>
+
+<script>
+'use strict';
+
+let score = 0;
+
+const messages = {
+  4: "Perfect! You nailed the entire sales funnel. 🎯",
+  3: "Great job! Almost there — review the one you missed.",
+  2: "Good effort! Keep studying the funnel stages.",
+  1: "You're getting started — re-read the material and try again!",
+  0: "Don't give up — review the story and try once more!"
+};
+
+function answer(clickedBtn, isCorrect) {
+  // Guard: already answered
+  if (clickedBtn.disabled) return;
+
+  const screen = clickedBtn.closest('.screen');
+  const allBtns = screen.querySelectorAll('.option-btn');
+  allBtns.forEach(b => { b.disabled = true; });
+
+  const fb = screen.querySelector('.feedback');
+  const nx = screen.querySelector('.next-btn');
+
+  if (isCorrect) {
+    score++;
+    clickedBtn.classList.add('correct');
+    fb.textContent = '✓ Correct!';
+    fb.className = 'feedback show ok';
+    spawnStars(clickedBtn);
+  } else {
+    clickedBtn.classList.add('wrong');
+    fb.textContent = '✗ Wrong!';
+    fb.className = 'feedback show ko';
+    allBtns.forEach(b => {
+      if (b !== clickedBtn) b.classList.add('reveal-correct');
+    });
+  }
+
+  nx.classList.add('show');
+}
+
+function goNext(targetId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+  if (targetId === 'end') {
+    document.getElementById('finalScore').textContent = score + '/4';
+    document.getElementById('finalMsg').textContent = messages[score];
+  }
+
+  const target = document.getElementById(targetId);
+  target.classList.add('active');
+
+  // Scroll to top (critical on mobile)
+  window.scrollTo({ top: 0, behavior: 'instant' });
+
+  // Re-trigger entrance animations
+  requestAnimationFrame(() => {
+    target.querySelectorAll('.quiz-title, .question-card, .options').forEach(el => {
+      el.classList.remove('anim');
+      void el.offsetWidth; // force reflow
+      el.classList.add('anim');
+    });
+  });
+}
+
+function spawnStars(el) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const emojis = ['⭐', '✨', '🌟', '💛', '⭐'];
+
+  emojis.forEach((emoji, i) => {
+    const star = document.createElement('div');
+    star.className = 'star-particle';
+    star.textContent = emoji;
+    star.style.left = (cx + (Math.random() - .5) * 120) + 'px';
+    star.style.top  = (cy + (Math.random() - .5) * 60)  + 'px';
+    star.style.animationDelay = (i * .07) + 's';
+    document.body.appendChild(star);
+    setTimeout(() => { if (star.parentNode) star.parentNode.removeChild(star); }, 950 + i * 70);
+  });
+}
+
+// Kick off entrance animation for Q1 on first load
+window.addEventListener('DOMContentLoaded', function() {
+  var q1 = document.getElementById('q1');
+  requestAnimationFrame(function() {
+    q1.querySelectorAll('.quiz-title, .question-card, .options').forEach(function(el) {
+      el.classList.add('anim');
+    });
+  });
+});
+</script>
+</body>
+</html>
